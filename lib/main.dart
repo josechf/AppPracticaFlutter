@@ -3,10 +3,15 @@ import 'configuraciones/configuraciones.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 Future<void> main() async {
-  await Supabase.initialize(
-    url: Configuraciones.supabaseurl,
-    anonKey: Configuraciones.supabaseanonKey,
-  );
+  try {
+    await Supabase.initialize(
+      url: Configuraciones.supabaseurl,
+      anonKey: Configuraciones.supabaseanonKey,
+    );
+  } catch (e) {
+    print('Error inicializando Supabase: $e');
+  }
+
   runApp(const MyApp());
 }
 
@@ -37,11 +42,9 @@ class MyHomePage extends StatefulWidget {
 }
 
 class ListaTareas extends State<MyHomePage> {
-  List<String> tareas = ["estudiar", "gym", "comer"];
-  final TextEditingController TextoTemporal = TextEditingController();
   String connectionStatus = "Presiona el botón para verificar la conexión";
   final supabase = Supabase.instance.client;
-
+  final _future = Supabase.instance.client.from('tareas').select();
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -65,70 +68,27 @@ class ListaTareas extends State<MyHomePage> {
                 icon: const Icon(Icons.dataset)),
           ],
         ),
-        body: Column(
-          children: [
-            Flexible(
-              flex: 2,
-              child: ListView.builder(
-                itemCount: tareas.length,
-                itemBuilder: (context, index) {
-                  return Container(
-                    margin: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 16.0),
-                    decoration: BoxDecoration(
-                      color: const Color.fromARGB(255, 75, 212, 137),
-                      borderRadius: BorderRadius.circular(10.0),
-                    ),
-                    child: ListTile(
-                      title: Center(
-                        child: Text(tareas[index]),
-                      ),
-                      trailing: IconButton(
-                        //boton de uso secundario, dentro de cada widget
-                        onPressed: () {
-                          setState(() {
-                            tareas.removeAt(index);
-                          });
-                        },
-                        icon: const Icon(Icons.delete),
-                        tooltip: "delete",
-                      ),
-                    ),
-                  );
-                },
-              ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: TextoTemporal,
-                      decoration: const InputDecoration(
-                        hintText: 'nueva tarea',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                      onPressed: () {
-                        Agregar();
-                      },
-                      child: const Text("agregar")),
-                ],
-              ),
-            ),
-          ],
-        ));
-  }
+        body: FutureBuilder(
+            future: _future,
+            builder: (context, snapshot) {
+              if (!snapshot.hasData) {
+                return const Center(
+                  child: CircularProgressIndicator(),
+                );
+              }
+              if (snapshot.hasError) {
+                return Center(child: Text('Error: ${snapshot.error}'));
+              }
 
-  void Agregar() {
-    if (TextoTemporal.text.isNotEmpty) {
-      setState(() {
-        tareas.add(TextoTemporal.text);
-      });
-    }
+              final tarea = snapshot.data!;
+              return ListView.builder(
+                  itemCount: tarea.length,
+                  itemBuilder: ((context, index) {
+                    final imprimir = tarea[index];
+                    return ListTile(
+                      title: Text(imprimir['descripcion']),
+                    );
+                  }));
+            }));
   }
 }
