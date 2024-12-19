@@ -41,6 +41,61 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => ListaTareas();
 }
 
+class UpdateButton extends StatelessWidget {
+  final int id;
+  final Function(int, String) onUpdate;
+
+  const UpdateButton({
+    Key? key,
+    required this.id,
+    required this.onUpdate,
+  }) : super(key: key);
+
+  void _showUpdateDialog(BuildContext context) {
+    final TextEditingController _updateController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Actualizar Tarea'),
+        content: TextField(
+          controller: _updateController,
+          decoration: const InputDecoration(labelText: 'Nueva descripción'),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+            },
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              if (_updateController.text.isNotEmpty) {
+                onUpdate(id, _updateController.text);
+                Navigator.of(context).pop();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Por favor ingresa un texto')),
+                );
+              }
+            },
+            child: const Text('Actualizar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: const Icon(Icons.update),
+      onPressed: () => _showUpdateDialog(context),
+    );
+  }
+}
+
 class ListaTareas extends State<MyHomePage> {
   String connectionStatus = "Presiona el botón para verificar la conexión";
   final supabase = Supabase.instance.client;
@@ -75,6 +130,17 @@ class ListaTareas extends State<MyHomePage> {
       setState(() {});
     } catch (e) {
       print('Error al eliminar $e');
+    }
+  }
+
+  Future<void> update(int id, String nuevaTarea) async {
+    try {
+      await supabase
+          .from('tareas')
+          .update({'descripcion': nuevaTarea}).eq('id', id);
+      setState(() {});
+    } catch (e) {
+      print('Eror al actualizar $e');
     }
   }
 
@@ -150,13 +216,22 @@ class ListaTareas extends State<MyHomePage> {
                       itemBuilder: ((context, index) {
                         final imprimir = tarea[index];
                         return ListTile(
-                          title: Text(imprimir['descripcion']),
-                          trailing: IconButton(
-                              onPressed: () {
-                                delete(imprimir['id']);
-                              },
-                              icon: Icon(Icons.remove)),
-                        );
+                            title: Text(imprimir['descripcion']),
+                            trailing: Wrap(
+                              children: [
+                                IconButton(
+                                    onPressed: () {
+                                      delete(imprimir['id']);
+                                    },
+                                    icon: Icon(Icons.remove)),
+                                UpdateButton(
+                                  id: imprimir['id'],
+                                  onUpdate: (id, nuevaDescripcion) {
+                                    update(id, nuevaDescripcion);
+                                  },
+                                ),
+                              ],
+                            ));
                       }));
 
                 default:
